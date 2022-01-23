@@ -8,7 +8,9 @@ namespace config {
   struct Config {
   public:
     unsigned long int port;
-    std::vector<std::string> servers;
+    std::vector<std::pair<std::string, unsigned long int>> servers;
+
+    unsigned long int limit;
 
     Config();
     ~Config();

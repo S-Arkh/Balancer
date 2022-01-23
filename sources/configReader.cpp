@@ -1,24 +1,11 @@
 #include "configReader.h"
+#include "balancerExceptions.h"
 #include <climits>
 #include <cstdlib>
 #include <errno.h>
-#include <exception>
 #include <fstream>
 #include <iostream>
 #include <regex>
-
-class configReaderException : public std::exception {
-private:
-  std::string m_error;
-
-public:
-  configReaderException(const std::string &error) : m_error(error){
-
-                                                    };
-  virtual const char *what() const noexcept {
-    return m_error.c_str();
-  }
-};
 
 config::configReader::configReader(const std::string &fileName)
     : m_fileName(fileName){
@@ -61,9 +48,13 @@ void config::configReader::parseData(config::Config &config, const std::string &
         throw configReaderException("Port value is invalid");
       }
     }
+
+    if (std::to_string(config.port) != port) {
+      throw configReaderException("Read invalid port");
+    }
   }
 
-  start_position = data.find("servers:", end_position);
+  start_position = data.find("servers:");
 
   if (data.npos == start_position) {
     throw configReaderException("Can't find servers in settings file");
@@ -74,24 +65,54 @@ void config::configReader::parseData(config::Config &config, const std::string &
   {
     std::regex ip_regex("(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])");
 
-    auto end_position = data.find(';', start_position);
+    end_position = data.find(':', start_position);
 
     if (data.npos == end_position) {
       end_position = data.find('\n', start_position);
     }
 
-    while (data.npos != end_position) {
+    while ((data.npos != end_position) && (start_position != end_position)) {
       auto address = data.substr(start_position, end_position - start_position);
 
       if (!std::regex_match(address, ip_regex)) {
         throw configReaderException("Server ip is invlid");
       }
 
-      config.servers.push_back(address);
-
       start_position = end_position + 1;
 
       end_position = data.find(';', start_position);
+      if (data.npos == end_position) {
+        end_position = data.find('\n', start_position);
+      }
+
+      std::string server_port = data.substr(start_position, end_position - start_position);
+
+      unsigned long int port = std::strtoul(server_port.c_str(), nullptr, 0);
+
+      if (ULONG_MAX == port) {
+        if (ERANGE == errno) {
+          throw configReaderException("Server port value is out of range");
+        }
+      }
+
+      if (0 == port) {
+        if (server_port.npos != server_port.find_first_not_of('0')) {
+          throw configReaderException("Server port value is invalid");
+        }
+      }
+
+      if (std::to_string(port) != server_port) {
+        throw configReaderException("Read invalid server port");
+      }
+
+      config.servers.emplace_back(address, port);
+
+      start_position = end_position + 1;
+
+      if (data.find(':', start_position) > data.find('\n', start_position)) {
+        break;
+      }
+      end_position = data.find(':', start_position);
 
       if (data.npos == end_position) {
         end_position = data.find('\n', start_position);
@@ -100,6 +121,42 @@ void config::configReader::parseData(config::Config &config, const std::string &
 
     if (true == config.servers.empty()) {
       throw configReaderException("Servers is empty");
+    }
+  }
+
+  start_position = data.find("limit:");
+
+  if (data.npos == start_position) {
+    throw configReaderException("Can't find limit in settings file");
+  }
+
+  start_position += 6; //Add length of "limit:"
+
+  end_position = data.find('\n', start_position);
+
+  if (data.npos == end_position) {
+    throw configReaderException("Can't find end of limit in settings file");
+  }
+
+  {
+    std::string limit = data.substr(start_position, end_position - start_position);
+
+    config.limit = std::strtoul(limit.c_str(), nullptr, 0);
+
+    if (ULONG_MAX == config.limit) {
+      if (ERANGE == errno) {
+        throw configReaderException("Limit value is out of range");
+      }
+    }
+
+    if (0 == config.limit) {
+      if (limit.npos != limit.find_first_not_of('0')) {
+        throw configReaderException("Limit value is invalid");
+      }
+    }
+
+    if (std::to_string(config.limit) != limit) {
+      throw configReaderException("Read invalid limit");
     }
   }
 };
@@ -113,7 +170,7 @@ void config::configReader::readConfig(config::Config &config) {
     if (-1 == size) {
       throw configReaderException("Can't work with file");
     }
-    std::vector<char> memblock('0', size);
+    std::vector<char> memblock(size, '0');
     file.seekg(0, std::ios::beg);
     file.read(memblock.data(), size);
     file.close();
