@@ -11,7 +11,8 @@ namespace udp_sender {
   class udpSender {
   private:
     int m_socket;
-    sockaddr_in m_si_me;
+    sockaddr_in m_socket_in;
+    int m_socket_in_length;
     std::string m_address;
     unsigned long int m_port;
 

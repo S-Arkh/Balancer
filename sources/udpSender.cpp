@@ -14,14 +14,16 @@ udp_sender::udpSender::udpSender(const std::string &address, const unsigned long
     throw configReaderException("Can't create socket");
   }
 
-  memset((char *)&m_si_me, 0, sizeof(m_si_me));
-  m_si_me.sin_family = AF_INET;
-  m_si_me.sin_port = htons(port);
+  memset((char *)&m_socket_in, 0, sizeof(m_socket_in));
+  m_socket_in.sin_family = AF_INET;
+  m_socket_in.sin_port = htons(port);
 
-  if (inet_aton(m_address.c_str(), &m_si_me.sin_addr) == 0) {
+  if (inet_aton(m_address.c_str(), &m_socket_in.sin_addr) == 0) {
     close(m_socket);
     throw configReaderException("Can't convert address");
   }
+
+  m_socket_in_length = sizeof(m_socket_in);
 };
 
 udp_sender::udpSender::~udpSender() {
@@ -30,9 +32,7 @@ udp_sender::udpSender::~udpSender() {
 
 void udp_sender::udpSender::sendData(std::shared_ptr<std::vector<char>> data, const long int &length) {
 
-  int slen = sizeof(m_si_me);
-
-  if (sendto(m_socket, data->data(), length, 0, (struct sockaddr *)&m_si_me, slen) == -1) {
+  if (sendto(m_socket, data->data(), length, 0, (struct sockaddr *)&m_socket_in, m_socket_in_length) == -1) {
     throw configReaderException("Can't send data to server");
   }
 };
