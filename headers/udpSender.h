@@ -10,18 +10,19 @@ namespace udp_sender {
 
   class udpSender {
   private:
-    std::string m_address;
-    unsigned long int m_port;
     int m_socket;
     sockaddr_in m_si_me;
-    std::shared_ptr<std::vector<char>> buffer;
+    std::string m_address;
+    unsigned long int m_port;
 
   public:
     udpSender(const std::string &address, const unsigned long int &port);
 
     ~udpSender();
 
-    void sendData(std::shared_ptr<std::vector<char>> data);
+    void sendData(std::shared_ptr<std::vector<char>> data, const long int &length);
+
+    std::shared_ptr<std::string> getServerinfo();
   };
 
 } // namespace udp_sender

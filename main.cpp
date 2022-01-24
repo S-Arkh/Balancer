@@ -1,21 +1,89 @@
-#include <iostream>
-
 #include "config.h"
 #include "configReader.h"
 #include "udpReceiver.h"
+#include "udpSender.h"
 
 #include <chrono>
+#include <ctime>
 #include <exception>
+#include <iostream>
 
-int main() {
+void balancer(const config::Config &new_config) {
+  udp_receiver::udpReceiver receiver(new_config.port);
+
+  long int received_length;
+  unsigned long int count = 0;
+
+  std::vector<std::unique_ptr<udp_sender::udpSender>> servers;
+  try {
+    for (auto it = new_config.servers.cbegin(); it != new_config.servers.cend(); ++it) {
+      servers.emplace_back(std::make_unique<udp_sender::udpSender>(it->first, it->second));
+    }
+  } catch (std::exception &exce) {
+    std::cerr << exce.what() << std::endl;
+    return;
+  }
+
+  auto server_it = servers.begin();
+
+  std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+
+  for (;;) {
+
+    std::shared_ptr<std::vector<char, std::allocator<char>>> getted_data;
+    try {
+      getted_data = receiver.receiveData(received_length);
+    } catch (std::exception &exce) {
+      std::cerr << exce.what() << std::endl;
+      return;
+    }
+
+    std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - now;
+
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() > 1000) {
+      count = 0;
+      now = std::chrono::high_resolution_clock::now();
+    }
+    if (count < new_config.limit) {
+
+      try {
+        server_it->get()->sendData(getted_data, received_length);
+      } catch (std::exception &exce) {
+        std::cerr << exce.what() << std::endl;
+        return;
+      }
+      server_it++;
+      if (server_it == servers.end()) {
+        server_it = servers.begin();
+      }
+
+      std::cout << "sended with count: "
+                << std::to_string(count)
+                << " to server: "
+                << *server_it->get()->getServerinfo()
+                << std::endl;
+      count++;
+    }
+  }
+};
+
+int main(int argc, char *argv[]) {
+  std::string file_name;
+
+  if (argc > 1) {
+    file_name = argv[1];
+  } else {
+    std::cerr << "Don't write file name" << std::endl;
+    return 0;
+  }
+
   config::Config new_config;
 
-  config::configReader reader("test_config.txt");
-
   try {
+    config::configReader reader(file_name);
     reader.readConfig(new_config);
-  } catch (std::exception &exep) {
-    std::cout << exep.what() << std::endl;
+  } catch (std::exception &exce) {
+    std::cerr << exce.what() << std::endl;
     return 0;
   }
 
@@ -29,33 +97,12 @@ int main() {
     std::cout << counter << ": " << it->first << ':' << it->second << std::endl;
   }
 
-  udp_receiver::udpReceiver rec(8888);
-
-  long int recived_length;
-  unsigned long int count = 0;
-
-  std::chrono::duration<int, std::ratio<10>> one_minute(1);
-
-  std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
-  std::chrono::system_clock::time_point next = now + one_minute;
-  for (;;) {
-    now = std::chrono::system_clock::now();
-    if (next <= now) {
-      count = 0;
-      next = now + one_minute;
-    }
-    if (count < new_config.limit) {
-      auto getted_data = rec.receiveData(recived_length);
-
-      std::cout << "getted_data: ";
-      auto it = getted_data->cbegin();
-      for (long int i = 0; i < recived_length; ++i) {
-        std::cout << *it;
-        it++;
-      }
-      std::cout << std::endl;
-      count++;
-    }
+  try {
+    balancer(new_config);
+  } catch (std::exception &exce) {
+    std::cerr << exce.what() << std::endl;
+    return 0;
   }
-  std::cout << "end" << std::endl;
+
+  std::cout << "Balancer ended" << std::endl;
 }
