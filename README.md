@@ -11,3 +11,5 @@
 
 Запуск:
 1) Находясь в каталоге build выполнить ./Balancer <путь до файла конфигурации>, пример ./Balancer ../config/config.txt
+
+Для проверки можно воспользоваться https://github.com/S-Arkh/BalancerSender.git и https://github.com/S-Arkh/BalancerReceiver.git
