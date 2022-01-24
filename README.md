@@ -8,4 +8,4 @@
 4) Выполнить make
 
 Запуск:
-1) Находясь в каталоге build выполнить ./Balancer <путь до файла конфигурации>, пример ./Balancer config/config.txt
+1) Находясь в каталоге build выполнить ./Balancer <путь до файла конфигурации>, пример ./Balancer ../config/config.txt
