@@ -19,6 +19,7 @@ udp_sender::udpSender::udpSender(const std::string &address, const unsigned long
   m_si_me.sin_port = htons(port);
 
   if (inet_aton(m_address.c_str(), &m_si_me.sin_addr) == 0) {
+    close(m_socket);
     throw configReaderException("Can't convert address");
   }
 };

@@ -22,6 +22,7 @@ udp_receiver::udpReceiver::udpReceiver(const unsigned long int &port)
   si_me.sin_addr.s_addr = htonl(INADDR_ANY);
 
   if (bind(m_socket, (struct sockaddr *)&si_me, sizeof(si_me)) == -1) {
+    close(m_socket);
     throw configReaderException("Can't bind socket to port");
   }
 };
