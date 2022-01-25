@@ -10,6 +10,25 @@
 #include <queue>
 #include <vector>
 
+bool acceptData(std::queue<std::chrono::high_resolution_clock::time_point> &sended_times, const unsigned long int &limit) {
+  if (sended_times.size() < limit) {
+    return true;
+  }
+
+  if (false == sended_times.empty()) {
+    std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - sended_times.front();
+
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() >= 1000) {
+      sended_times.pop();
+      return true;
+    } else {
+      return false;
+    }
+  } else {
+    return true;
+  }
+};
+
 void balancer(const config::Config &new_config) {
   udp_receiver::udpReceiver receiver(new_config.port);
 
@@ -38,15 +57,7 @@ void balancer(const config::Config &new_config) {
       return;
     }
 
-    if (false == sended_times.empty()) {
-      std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - sended_times.front();
-
-      if (std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() >= 1000) {
-        sended_times.pop();
-      }
-    }
-
-    if (sended_times.size() < new_config.limit) {
+    if (true == acceptData(sended_times, new_config.limit)) {
       try {
         server_it->get()->sendData(getted_data, received_length);
       } catch (std::exception &exce) {
