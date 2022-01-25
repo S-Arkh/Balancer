@@ -7,12 +7,13 @@
 #include <ctime>
 #include <exception>
 #include <iostream>
+#include <queue>
+#include <vector>
 
 void balancer(const config::Config &new_config) {
   udp_receiver::udpReceiver receiver(new_config.port);
 
   long int received_length;
-  unsigned long int count = 0;
 
   std::vector<std::unique_ptr<udp_sender::udpSender>> servers;
   try {
@@ -26,8 +27,7 @@ void balancer(const config::Config &new_config) {
 
   auto server_it = servers.begin();
 
-  std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
-
+  std::queue<std::chrono::high_resolution_clock::time_point> sended_times;
   for (;;) {
 
     std::shared_ptr<std::vector<char, std::allocator<char>>> getted_data;
@@ -38,14 +38,15 @@ void balancer(const config::Config &new_config) {
       return;
     }
 
-    std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - now;
+    if (false == sended_times.empty()) {
+      std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - sended_times.front();
 
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() > 1000) {
-      count = 0;
-      now = std::chrono::high_resolution_clock::now();
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() >= 1000) {
+        sended_times.pop();
+      }
     }
-    if (count < new_config.limit) {
 
+    if (sended_times.size() < new_config.limit) {
       try {
         server_it->get()->sendData(getted_data, received_length);
       } catch (std::exception &exce) {
@@ -53,9 +54,9 @@ void balancer(const config::Config &new_config) {
         return;
       }
 
-      std::cout << "sended with count: "
-                << std::to_string(count)
-                << " to server: "
+      sended_times.push(std::chrono::high_resolution_clock::now());
+
+      std::cout << "sended to server: "
                 << *server_it->get()->getServerinfo()
                 << std::endl;
 
@@ -63,8 +64,6 @@ void balancer(const config::Config &new_config) {
       if (server_it == servers.end()) {
         server_it = servers.begin();
       }
-
-      count++;
     }
   }
 };
