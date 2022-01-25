@@ -52,16 +52,18 @@ void balancer(const config::Config &new_config) {
         std::cerr << exce.what() << std::endl;
         return;
       }
-      server_it++;
-      if (server_it == servers.end()) {
-        server_it = servers.begin();
-      }
 
       std::cout << "sended with count: "
                 << std::to_string(count)
                 << " to server: "
                 << *server_it->get()->getServerinfo()
                 << std::endl;
+
+      server_it++;
+      if (server_it == servers.end()) {
+        server_it = servers.begin();
+      }
+
       count++;
     }
   }
